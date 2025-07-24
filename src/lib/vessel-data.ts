@@ -136,7 +136,7 @@ export const fourVessels: Vessel[] = [
     name: 'Navigation Beacon',
     type: 'circle',
     position: [0.0, 47.0],
-    icon: '/lovable-uploads/d4b87a52-a63f-4c54-9499-15bd05ef9037.png'
+    icon: '/lovable-uploads/stopped-vessel.svg'
   },
   {
     id: 'vessel-4',

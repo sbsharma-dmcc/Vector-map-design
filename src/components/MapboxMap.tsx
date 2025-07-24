@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback, useContext, createContext } from "react";
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/hooks/use-toast';
@@ -7,8 +7,27 @@ import DirectTokenInput from './DirectTokenInput';
 import { getDTNToken } from '@/utils/dtnTokenManager';
 import { createVesselMarkers, cleanupVesselMarkers } from '@/utils/vesselMarkers';
 import { fourVessels, Vessel } from '@/lib/vessel-data';
-
 import WeatherLayerConfig from './WeatherLayerConfig';
+
+// Theme Context
+interface ThemeContextType {
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'light',
+  toggleTheme: () => {}
+});
+
+export const useTheme = () => useContext(ThemeContext);
+
+// Base layer styles for different themes
+const baseLayerStyles = {
+  light: 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7', // Your current light style
+  dark: 'mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66', // Mapbox dark style
+  default: 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7'
+};
 
 mapboxgl.accessToken = "pk.eyJ1IjoiZ2Vvc2VydmUiLCJhIjoiY201Z2J3dXBpMDU2NjJpczRhbmJubWtxMCJ9.6Kw-zTqoQcNdDokBgbI5_Q";
 
@@ -23,6 +42,34 @@ interface MapboxMapProps {
   activeBaseLayer?: string;
   isGlobeViewEnabled?: boolean;
 }
+
+// Theme Toggle Button Component
+const ThemeToggleButton: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
+  
+  return (
+    <button
+      onClick={toggleTheme}
+      className="absolute top-4 right-4 z-30 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 hover:shadow-xl transition-all duration-200"
+      title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+    >
+      <div className="flex items-center space-x-2">
+        {theme === 'light' ? (
+          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        ) : (
+          <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        )}
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+          {theme === 'light' ? 'Dark' : 'Light'}
+        </span>
+      </div>
+    </button>
+  );
+};
 
 const MapboxMap: React.FC<MapboxMapProps> = ({ 
   vessels = [],
@@ -39,7 +86,21 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const mapref = useRef<mapboxgl.Map | null>(null);
   const vesselMarkersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const [showLayers, setShowLayers] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    // Load theme from localStorage or default to light
+    const saved = localStorage.getItem('mapTheme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
   
+  // Theme toggle function
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => {
+      const newTheme = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('mapTheme', newTheme);
+      return newTheme;
+    });
+  }, []);
+
   const [activeOverlays, setActiveOverlays] = useState<string[]>([]);
   const activeWeatherLayers = activeOverlays.filter(layer => ['wind', 'swell', 'tropicalStorms', 'pressure', 'current', 'symbol', 'waves'].includes(layer));
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -135,9 +196,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         { value: '9m', color: '#8f0a10' },
         { value: '10m+', color: '#56001d' }
       ]
-
     },
-
     symbol: {
       textColor: '#ff0000',
       textSize: 16,
@@ -157,16 +216,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       textOpacity: 0.8,
       haloColor: '#000000',
       haloWidth: 1,
-      symbolSpacing: 100, // 🔄 FIXED: should be `symbolSpacing`, not `currentSpacing`
+      symbolSpacing: 100,
       allowOverlap: true,
       rotationAlignment: 'map',
       symbolType: 'arrow',
       customSymbol: '→',
       showSizeValue: false
     }
-
-
-
   });
 
   const { toast } = useToast();
@@ -203,64 +259,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     }
   };
 
-  // Utility to add two related layers (border + main) for a given type
-  const addLinePair = (layerId: string, sourceId: string, sourceLayer: string, cfg: any, beforeId: string | undefined) => {
-    mapref.current!.addLayer({
-      id: `${layerId}-border`,
-      type: "line",
-      source: sourceId,
-      "source-layer": sourceLayer,
-      paint: {
-        "line-color": cfg.border.color,
-        "line-width": cfg.border.width
-      },
-      filter: cfg.filter
-    }, beforeId);
-
-    mapref.current!.addLayer({
-      id: layerId,
-      type: "line",
-      source: sourceId,
-      "source-layer": sourceLayer,
-      paint: {
-        "line-color": cfg.line.color,
-        "line-width": cfg.line.width,
-        ...(cfg.line.dasharray ? { "line-dasharray": cfg.line.dasharray } : {})
-      },
-      filter: cfg.filter
-    }, beforeId);
-  };
-
-  // Load vessels from the predefined list
-  useEffect(() => {
-    setMapVessels(fourVessels);
-  }, []);
-
-  // Listen for configuration updates from sidebar
-  useEffect(() => {
-    const handleConfigUpdate = (event: CustomEvent) => {
-      const { layerType, config } = event.detail;
-      console.log('Received config update:', { layerType, config });
-      setLayerConfigs(prev => ({
-        ...prev,
-        [layerType]: config
-      }));
-      applyLayerConfiguration(layerType, config);
-    };
-
-    window.addEventListener('weatherConfigUpdate', handleConfigUpdate as EventListener);
-    return () => {
-      window.removeEventListener('weatherConfigUpdate', handleConfigUpdate as EventListener);
-    };
-  }, []);
-
   // Initialize map
   useEffect(() => {
     if (mapref.current) return; // initialize map only once
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current!,
-      style: 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7',
+      style: baseLayerStyles[theme] || baseLayerStyles.default,
       center: [0, 20],
       zoom: 2,
       attributionControl: false
@@ -305,7 +310,38 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       }
       setIsMapLoaded(false);
     };
-  }, [toast]);
+  }, []); // Remove theme dependency from initial setup
+
+  // Handle theme changes - switch map style
+  useEffect(() => {
+    const map = mapref.current;
+    if (!map || !isMapLoaded) return;
+
+    console.log(`Switching map style to theme: ${theme}`);
+    map.setStyle(baseLayerStyles[theme] || baseLayerStyles.default);
+
+    // Re-apply overlays after style has changed
+    map.once('styledata', () => {
+      console.log("Re-applying active overlays after style change:", activeOverlays);
+      
+      // Re-add the vessel layer first
+      if (!map.getLayer('vessel-layer')) {
+        map.addLayer({
+          id: 'vessel-layer',
+          type: 'symbol',
+          source: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } }
+        });
+      }
+      
+      // Use a temporary list to avoid race conditions with state updates
+      const overlaysToReapply = [...activeOverlays];
+      setActiveOverlays([]); // Clear state to allow re-adding
+      setTimeout(() => {
+        overlaysToReapply.forEach(overlay => handleOverlayClick(overlay, true));
+      }, 100);
+    });
+
+  }, [theme, isMapLoaded]);
 
   // Handle globe view toggle
   useEffect(() => {
@@ -327,6 +363,29 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   }, []);
 
   const markersCreatedOnceRef = useRef(false);
+
+  // Load vessels from the predefined list
+  useEffect(() => {
+    setMapVessels(fourVessels);
+  }, []);
+
+  // Listen for configuration updates from sidebar
+  useEffect(() => {
+    const handleConfigUpdate = (event: CustomEvent) => {
+      const { layerType, config } = event.detail;
+      console.log('Received config update:', { layerType, config });
+      setLayerConfigs(prev => ({
+        ...prev,
+        [layerType]: config
+      }));
+      applyLayerConfiguration(layerType, config);
+    };
+
+    window.addEventListener('weatherConfigUpdate', handleConfigUpdate as EventListener);
+    return () => {
+      window.removeEventListener('weatherConfigUpdate', handleConfigUpdate as EventListener);
+    };
+  }, []);
 
   // Manage vessel markers
   useEffect(() => {
@@ -458,10 +517,11 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       console.log('Started swell animation');
     }
   };
+
   const animateWindWaves = () => {
     if (!mapref.current || !mapref.current.isStyleLoaded()) return;
 
-    const layerId = `dtn-layer-windwave`;
+    const layerId = `dtn-layer-waves`;
 
     if (mapref.current.getLayer(layerId)) {
       let offset = 0;
@@ -486,6 +546,33 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     }
   };
 
+  // Utility to add two related layers (border + main) for a given type
+  const addLinePair = (layerId: string, sourceId: string, sourceLayer: string, cfg: any, beforeId: string | undefined) => {
+    mapref.current!.addLayer({
+      id: `${layerId}-border`,
+      type: "line",
+      source: sourceId,
+      "source-layer": sourceLayer,
+      paint: {
+        "line-color": cfg.border.color,
+        "line-width": cfg.border.width
+      },
+      filter: cfg.filter
+    }, beforeId);
+
+    mapref.current!.addLayer({
+      id: layerId,
+      type: "line",
+      source: sourceId,
+      "source-layer": sourceLayer,
+      paint: {
+        "line-color": cfg.line.color,
+        "line-width": cfg.line.width,
+        ...(cfg.line.dasharray ? { "line-dasharray": cfg.line.dasharray } : {})
+      },
+      filter: cfg.filter
+    }, beforeId);
+  };
 
   // Enhanced configuration application (moved before updateLayerConfig)
   const applyLayerConfiguration = (layerType: string, config: any) => {
@@ -654,8 +741,6 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     updateLayerConfig(layerType, { visible });
   };
 
-
-
   // Function to get symbol based on type
   const getSymbolByType = (symbolType: string, customSymbol?: string) => {
     switch (symbolType) {
@@ -674,7 +759,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     }
   };
 
-  const handleOverlayClick = async (overlay: string) => {
+  const handleOverlayClick = async (overlay: string, forceAdd = false) => {
     console.log(`Attempting to add overlay: ${overlay}`);
     
     if (!mapref.current || !mapref.current.isStyleLoaded()) {
@@ -687,7 +772,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       return;
     }
 
-    if (activeOverlays.includes(overlay)) {
+    if (activeOverlays.includes(overlay) && !forceAdd) {
       console.log(`Removing overlay: ${overlay}`);
       removeOverlay(overlay);
       return;
@@ -722,10 +807,6 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       setActiveOverlays(prev => [...prev, overlay]);
       return;
     }
-
-    
-
-    
 
     const { dtnLayerId, tileSetId } = dtnOverlays[overlay];
     const sourceId = `dtn-source-${overlay}`;
@@ -987,6 +1068,12 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
               "text-ignore-placement": true,
               "symbol-spacing": symbolConfig.symbolSpacing
             },
+            paint: {
+              "text-color": symbolConfig.textColor,
+              "text-opacity": symbolConfig.textOpacity,
+              "text-halo-color": symbolConfig.haloColor,
+              "text-halo-width": symbolConfig.haloWidth
+            },
           }, beforeId);
         } else if (overlay === 'nautical'){
           console.log('Nautical charts');
@@ -1073,10 +1160,18 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
               "text-ignore-placement": true,
               "symbol-spacing": symbolConfig.symbolSpacing
             },
+            paint: {
+              "text-color": symbolConfig.textColor,
+              "text-opacity": symbolConfig.textOpacity,
+              "text-halo-color": symbolConfig.haloColor,
+              "text-halo-width": symbolConfig.haloWidth
+            },
           }, beforeId);
         }
 
-        setActiveOverlays(prev => [...prev, overlay]);
+        if (!activeOverlays.includes(overlay)) {
+          setActiveOverlays(prev => [...prev, overlay]);
+        }
         console.log(`Successfully added ${overlay} layer`);
         
         toast({
@@ -1138,39 +1233,9 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       ];
       
       tropicalLayers.forEach(layer => {
-        if (mapref.current.getLayer(layer)) {
-          mapref.current.removeLayer(layer);
+        if (mapref.current!.getLayer(layer)) {
+          mapref.current!.removeLayer(layer);
         }
-      });
-    } else {
-      // Remove all related layers for other overlays
-      if (mapref.current.getLayer(fillLayerId)) {
-        mapref.current.removeLayer(fillLayerId);
-      }
-      if (mapref.current.getLayer(blurLayerId)) {
-        mapref.current.removeLayer(blurLayerId);
-      }
-      if (mapref.current.getLayer(layerId)) {
-        mapref.current.removeLayer(layerId);
-      }
-    }
-
-    if (overlay === 'tropicalStorms') {
-      const tropicalLayers = [
-        `${layerId}-cone-border`,
-        `${layerId}-cone`,
-        `${layerId}-history-border`,
-        `${layerId}-history`,
-        `${layerId}-forecast-border`,
-        `${layerId}-forecast`,
-        `${layerId}-points`,
-        `${layerId}-symbols`
-      ];
-      
-      tropicalLayers.forEach(layer => {
-        if (mapref.current.getLayer(layer)) {
-          mapref.current.removeLayer(layer);
-      }
       });
     } else {
       // Remove all related layers for other overlays
@@ -1202,48 +1267,58 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     });
   };
 
+  // Theme context provider value
+  const themeContextValue = {
+    theme,
+    toggleTheme
+  };
+
   return (
-    <div className="relative h-full w-full">
-      <MapTopControls />
-      <DirectTokenInput />
-      <div ref={mapContainerRef} className="absolute inset-0" />
+    <ThemeContext.Provider value={themeContextValue}>
+      <div className="relative h-full w-full">
+        <MapTopControls />
+        <DirectTokenInput />
+        
+        {/* Theme Toggle Button */}
+        <ThemeToggleButton />
+        
+        <div ref={mapContainerRef} className="absolute inset-0" />
 
-      {/* Weather Layer Configuration Panel - Real-time on right side */}
-      <WeatherLayerConfig 
-        isOpen={activeWeatherLayers.length > 0}
-        activeLayers={activeWeatherLayers}
-      />
+        {/* Weather Layer Configuration Panel - Real-time on right side */}
+        <WeatherLayerConfig 
+          isOpen={activeWeatherLayers.length > 0}
+          activeLayers={activeWeatherLayers}
+        />
 
-      
-
-      {showLayers && (
-        <div className="absolute top-32 left-4 z-20 bg-white rounded-lg shadow-lg p-4 min-w-[200px]">
-          <h3 className="text-sm font-semibold mb-3">DTN Weather Layers</h3>
-          {Object.keys(dtnOverlays).map((overlay) => (
-            <div
-              key={overlay}
-              onClick={() => handleOverlayClick(overlay)}
-              className={`p-2 m-1 rounded cursor-pointer transition-colors ${
-                activeOverlays.includes(overlay)
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-100 hover:bg-gray-200 text-black'
-              }`}
-            >
-              {overlay.charAt(0).toUpperCase() + overlay.slice(1).replace('-', ' ')}
-              {activeOverlays.includes(overlay) && <span className="ml-2">✓</span>}
-            </div>
-          ))}
-          {activeOverlays.length > 0 && (
-            <button
-              onClick={removeAllOverlays}
-              className="w-full mt-2 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-            >
-              Remove All Layers ({activeOverlays.length})
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+        {showLayers && (
+          <div className="absolute top-32 left-4 z-20 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 min-w-[200px]">
+            <h3 className="text-sm font-semibold mb-3 text-gray-900 dark:text-gray-100">DTN Weather Layers</h3>
+            {Object.keys(dtnOverlays).map((overlay) => (
+              <div
+                key={overlay}
+                onClick={() => handleOverlayClick(overlay)}
+                className={`p-2 m-1 rounded cursor-pointer transition-colors ${
+                  activeOverlays.includes(overlay)
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-100 hover:bg-gray-200 text-black dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200'
+                }`}
+              >
+                {overlay.charAt(0).toUpperCase() + overlay.slice(1).replace('-', ' ')}
+                {activeOverlays.includes(overlay) && <span className="ml-2">✓</span>}
+              </div>
+            ))}
+            {activeOverlays.length > 0 && (
+              <button
+                onClick={removeAllOverlays}
+                className="w-full mt-2 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              >
+                Remove All Layers ({activeOverlays.length})
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </ThemeContext.Provider>
   );
 };
 

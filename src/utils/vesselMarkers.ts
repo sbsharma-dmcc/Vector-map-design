@@ -13,7 +13,7 @@ export type VesselType = 'green' | 'orange' | 'circle' | 'container' | 'oil' | '
 // Helper to get the correct image path based on vessel type
 const getVesselIconPath = (type: VesselType) => {
   const iconPaths: { [key in VesselType]: string } = {
-    'circle': '/lovable-uploads/d4b87a52-a63f-4c54-9499-15bd05ef9037.png', // Orange circle icon
+    'circle': '/lovable-uploads/stopped-vessel.svg', // Orange circle icon
     'green': '/lovable-uploads/Variant12.svg', // Green vessel icon
     'orange': '/lovable-uploads/Variant13.svg', // Orange vessel icon
     'container': '/lovable-uploads/container.svg', // Teal container ship

@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { FolderPlus, Map, Plus, Settings, Share2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MapConfigurationView from '@/components/MapConfigurationView';
+
+// THEME CONTEXT - Global theme management without separate files
+const ThemeContext = createContext<{
+  theme: string;
+  toggleTheme: () => void;
+}>({
+  theme: 'light',
+  toggleTheme: () => {}
+});
+
+export const useTheme = () => useContext(ThemeContext);
 
 interface MapConfiguration {
   id: string;
@@ -25,6 +35,16 @@ interface Folder {
 }
 
 const Maps = () => {
+  // THEME STATE MANAGEMENT
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+  
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+  };
+
+  // EXISTING STATE
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
   const [selectedMap, setSelectedMap] = useState<MapConfiguration | null>(null);
@@ -111,7 +131,7 @@ const Maps = () => {
       mapSettings: {
         center: [83.167, 6.887],
         zoom: 4,
-        style: 'mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66'
+        style: theme === 'dark' ? 'mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66' : 'mapbox://styles/mapbox/light-v10'
       },
       createdAt: new Date().toISOString(),
       lastModified: new Date().toISOString()
@@ -199,34 +219,46 @@ const Maps = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">My Map Folders</h1>
-        <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-vessel-green hover:bg-vessel-green/90">
-              <FolderPlus className="h-4 w-4 mr-2" />
-              Create Folder
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Folder</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Folder name"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button onClick={createFolder} className="flex-1">
-                  Create Folder
-                </Button>
-                <Button variant="outline" onClick={() => setIsCreateFolderOpen(false)}>
-                  Cancel
-                </Button>
+        <div className="flex items-center gap-2">
+          {/* THEME TOGGLE BUTTON */}
+          <Button 
+            onClick={toggleTheme}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            {theme === "dark" ? "🌙" : "☀️"}
+            <span className="text-sm">{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          </Button>
+          <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-vessel-green hover:bg-vessel-green/90">
+                <FolderPlus className="h-4 w-4 mr-2" />
+                Create Folder
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Folder</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input
+                  placeholder="Folder name"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button onClick={createFolder} className="flex-1">
+                    Create Folder
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsCreateFolderOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -286,34 +318,46 @@ const Maps = () => {
           </Button>
           <h1 className="text-3xl font-bold text-gray-900">{selectedFolder?.name}</h1>
         </div>
-        <Dialog open={isCreateMapOpen} onOpenChange={setIsCreateMapOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-vessel-green hover:bg-vessel-green/90">
-              <Map className="h-4 w-4 mr-2" />
-              Create Map
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Map</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Map name"
-                value={newMapName}
-                onChange={(e) => setNewMapName(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button onClick={createMap} className="flex-1">
-                  Create Map
-                </Button>
-                <Button variant="outline" onClick={() => setIsCreateMapOpen(false)}>
-                  Cancel
-                </Button>
+        <div className="flex items-center gap-2">
+          {/* THEME TOGGLE BUTTON */}
+          <Button 
+            onClick={toggleTheme}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            {theme === "dark" ? "🌙" : "☀️"}
+            <span className="text-sm">{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          </Button>
+          <Dialog open={isCreateMapOpen} onOpenChange={setIsCreateMapOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-vessel-green hover:bg-vessel-green/90">
+                <Map className="h-4 w-4 mr-2" />
+                Create Map
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Map</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input
+                  placeholder="Map name"
+                  value={newMapName}
+                  onChange={(e) => setNewMapName(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button onClick={createMap} className="flex-1">
+                    Create Map
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsCreateMapOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -373,26 +417,29 @@ const Maps = () => {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {!selectedFolder ? renderFolderView() : renderMapsView()}
-      
-      {/* Map Configuration Dialog */}
-      <Dialog open={isMapViewOpen} onOpenChange={setIsMapViewOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Configure Map: {selectedMap?.name}</DialogTitle>
-          </DialogHeader>
-          {selectedMap && selectedFolder && (
-            <MapConfigurationView
-              map={selectedMap}
-              folder={selectedFolder}
-              onSave={(config) => saveMapConfiguration(selectedMap.id, config)}
-              onClose={() => setIsMapViewOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+    // THEME CONTEXT PROVIDER - Wraps entire component
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <div className={`container mx-auto px-4 py-8 ${theme}`}>
+        {!selectedFolder ? renderFolderView() : renderMapsView()}
+        
+        {/* Map Configuration Dialog */}
+        <Dialog open={isMapViewOpen} onOpenChange={setIsMapViewOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Configure Map: {selectedMap?.name}</DialogTitle>
+            </DialogHeader>
+            {selectedMap && selectedFolder && (
+              <MapConfigurationView
+                map={selectedMap}
+                folder={selectedFolder}
+                onSave={(config) => saveMapConfiguration(selectedMap.id, config)}
+                onClose={() => setIsMapViewOpen(false)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </ThemeContext.Provider>
   );
 };
 

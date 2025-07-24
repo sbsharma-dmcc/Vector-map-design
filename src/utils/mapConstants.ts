@@ -30,7 +30,9 @@ export const layerConfigs = {
 // BASE LAYER STYLES - Different map visual styles for base layers
 // Currently all point to the same style, but can be customized for different views
 export const baseLayerStyles = {
-  default: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7",  // Standard marine view
+  default: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7",
+  dark: "mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66",
+  light: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7",  // Standard marine view
   swell: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7",    // Swell-focused view
   waves: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7"      // Wave-focused view
 };
