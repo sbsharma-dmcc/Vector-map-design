@@ -40,7 +40,6 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const vesselMarkersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const [showLayers, setShowLayers] = useState(false);
   
-  
   const [activeOverlays, setActiveOverlays] = useState<string[]>([]);
   const activeWeatherLayers = activeOverlays.filter(layer => ['wind', 'swell', 'tropicalStorms', 'pressure', 'current', 'symbol', 'waves'].includes(layer));
   const [isMapLoaded, setIsMapLoaded] = useState(false);
