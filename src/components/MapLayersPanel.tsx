@@ -11,7 +11,7 @@
  */
 
 import React, { useState } from 'react';
-import { X, Wind, Compass, Gauge, Type, Waves, Droplets, Map, MapPin } from 'lucide-react';
+import { Navigation, X, Wind, Compass, Gauge, Type, Waves, Droplets, Map, MapPin, Shield,GaugeCircle} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Maps from '@/pages/Maps';
 
@@ -36,13 +36,17 @@ const MapLayersPanel: React.FC<MapLayersPanelProps> = ({
   onGlobeViewToggle
 }) => {
   const [enabledLayers, setEnabledLayers] = useState<Record<string, boolean>>({
-    wind: false,
+    // wind: false,
     tropicalStorms: false,
     swell: false, // Add swell to enabled layers state
     waves: false,
     pressure: false,
     current: false,
-    symbol: false
+    currentSpeed: false,
+    symbol: false,
+    windSpeedValues: false,
+    significantWaveHeight: false,
+    meanWaveDirection: false,
   });
 
   const [globeView, setGlobeView] = useState(false);
@@ -77,9 +81,14 @@ const MapLayersPanel: React.FC<MapLayersPanelProps> = ({
   const overlayLayers = [
     { id: 'wind', name: 'Wind', icon: Wind },
     { id: 'tropicalStorms', name: 'Tropical Storms', icon: () => <span className="text-xl">🌀</span> },
-    { id: 'current', name: 'Current', icon: Compass },
-    { id: 'symbol', name: 'Symbol', icon: Type },
+    { id: 'windSpeedValues', name: 'Wind Values', icon: GaugeCircle },
+    { id: 'significantWaveHeight', name: 'Sig. Wave Height', icon: Waves },
+    { id: 'current', name: 'Current Direction', icon: Compass }, // Renamed for clarity
+    { id: 'currentSpeed', name: 'Current Speed', icon: Gauge },
+    { id: 'symbol', name: 'Wind Direction', icon: Navigation },
     { id: 'pressure', name: 'Pressure', icon: Gauge },
+    { id: 'eca', name: 'ECA Zones', icon: Shield },
+    { id: 'meanWaveDirection', name: 'Mean Wave Direction', icon: Compass },
     // { id: 'nautical', name: 'Nautical Charts', icon: MapPin},
     // { id: 'rasterWind', name: 'Raster Wind', icon: Wind}
   ];
@@ -93,85 +102,130 @@ const MapLayersPanel: React.FC<MapLayersPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-lg p-4 w-80">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Overlays</h3>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-5 w-5" />
-        </Button>
-      </div>
+  <div className="absolute top-3 left-4 z-30 bg-white rounded-lg shadow-lg p-2 w-70">
+    {/* Header */}
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold">Map Layers</h3>
+      <Button variant="ghost" size="icon" onClick={onClose}>
+        <X className="h-5 w-5" />
+      </Button>
+    </div>
 
-      {/* Overlay Layers - Weather layers including tropical storms */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        {overlayLayers.map((layer) => {
+    {/* Voyage Optimization */}
+    <div className="mb-6">
+      <h4 className="text-sm font-bold text-gray-800 mb-2">Voyage Optimization</h4>
+      <div className="grid grid-cols-2 gap-4">
+        {[ 
+          { id: 'symbol', name: 'Wind Directions', icon: Navigation },
+          { id: 'current', name: 'Current Direction', icon: Compass },
+          { id: 'pressure', name: 'Pressure', icon: Gauge },
+          { id: 'waves', name: 'Wind Waves', icon: Droplets },
+          { id: 'tropicalStorms', name: 'Storms', icon: () => <span className="text-xl">🌀</span> },
+        ].map(layer => {
           const IconComponent = layer.icon;
           const isEnabled = enabledLayers[layer.id];
-          
           return (
-            <div key={layer.id} className="flex flex-col items-center">
+            <div key={`vo-${layer.id}`} className="flex flex-col items-center">
               <button
                 onClick={() => handleLayerToggle(layer.id)}
                 className={`w-16 h-16 rounded-lg flex items-center justify-center mb-2 transition-colors ${
-                  isEnabled 
-                    ? 'bg-blue-500 text-white' 
+                  isEnabled
+                    ? 'bg-blue-500 text-white'
                     : 'bg-blue-100 text-blue-500 hover:bg-blue-200'
                 }`}
               >
                 <IconComponent className="h-8 w-8" />
               </button>
-              <span className="text-sm font-medium">{layer.name}</span>
+              <span className="text-sm font-medium text-center">{layer.name}</span>
             </div>
           );
         })}
       </div>
+    </div>
 
-      {/* Separator */}
-      <div className="border-t border-gray-200 my-4"></div>
-
-      {/* Base Layer */}
-      <div className="mb-4">
-        <h4 className="text-sm font-semibold mb-3">Base layer</h4>
-        <div className="grid grid-cols-3 gap-3">
-          {baseLayers.map((layer) => {
-            const IconComponent = layer.icon;
-            return (
-              <div key={layer.id} className="flex flex-col items-center">
-                <button
-                  onClick={() => handleBaseLayerChange(layer.id)}
-                  className={`w-16 h-16 rounded-lg flex items-center justify-center mb-2 transition-colors ${
-                    activeLayer === layer.id
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <IconComponent className="h-8 w-8" />
-                </button>
-                <span className="text-xs mt-1">{layer.name}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Separator */}
-      <div className="border-t border-gray-200 my-4"></div>
-
-      {/* Globe View Toggle */}
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="globe-view"
-          checked={isGlobeViewEnabled}
-          onChange={(e) => onGlobeViewToggle(e.target.checked)}
-          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-        />
-        <label htmlFor="globe-view" className="ml-2 text-sm font-medium">
-          Globe View
-        </label>
+    {/* GeoPerform */}
+    <div className="mb-6">
+      <h4 className="text-sm font-bold text-gray-800 mb-2">GeoPerform</h4>
+      <div className="grid grid-cols-2 gap-4">
+        {[ 
+          { id: 'windSpeedValues', name: 'Wind Values', icon: GaugeCircle },
+          { id: 'significantWaveHeight', name: 'Sig. Wave Height', icon: Waves },
+          { id: 'meanWaveDirection', name: 'Wave Direction', icon: Compass },
+          { id: 'currentSpeed', name: 'Current Speed', icon: Gauge },
+          { id: 'symbol', name: 'Wind Direction', icon: Navigation },
+          { id: 'current', name: 'Current Direction', icon: Compass },
+        ].map(layer => {
+          const IconComponent = layer.icon;
+          const isEnabled = enabledLayers[layer.id];
+          return (
+            <div key={`gp-${layer.id}`} className="flex flex-col items-center">
+              <button
+                onClick={() => handleLayerToggle(layer.id)}
+                className={`w-16 h-16 rounded-lg flex items-center justify-center mb-2 transition-colors ${
+                  isEnabled
+                    ? 'bg-green-500 text-white'
+                    : 'bg-green-100 text-green-500 hover:bg-green-200'
+                }`}
+              >
+                <IconComponent className="h-8 w-8" />
+              </button>
+              <span className="text-sm font-medium text-center">{layer.name}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
-  );
+
+    {/* Base Layers */}
+    <div className="mb-4">
+      <h4 className="text-sm font-bold text-gray-800 mb-2">Base Layers</h4>
+      <div className="grid grid-cols-3 gap-3">
+        {[ 
+          { id: 'default', name: 'Default', icon: Map },
+          { id: 'swell', name: 'Swell', icon: Waves },
+          { id: 'waves', name: 'Waves', icon: Droplets },
+        ].map(layer => {
+          const IconComponent = layer.icon;
+          return (
+            <div key={`base-${layer.id}`} className="flex flex-col items-center">
+              <button
+                onClick={() => handleBaseLayerChange(layer.id)}
+                className={`w-16 h-16 rounded-lg flex items-center justify-center mb-2 transition-colors ${
+                  activeLayer === layer.id
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <IconComponent className="h-8 w-8" />
+              </button>
+              <span className="text-xs mt-1">{layer.name}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Separator */}
+    <div className="border-t border-gray-200 my-4"></div>
+
+    {/* Globe View Toggle */}
+    <div className="flex items-center">
+      <input
+        type="checkbox"
+        id="globe-view"
+        checked={isGlobeViewEnabled}
+        onChange={(e) => onGlobeViewToggle(e.target.checked)}
+        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+      />
+      <label htmlFor="globe-view" className="ml-2 text-sm font-medium">
+        Globe View
+      </label>
+    </div>
+  </div>
+);
+
+
+
 };
 
 export default MapLayersPanel;

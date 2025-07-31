@@ -37,7 +37,7 @@ const MapConfigurationView: React.FC<MapConfigurationViewProps> = ({
     
     mapRef.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: map.mapSettings?.style || 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7',
+      style: map.mapSettings?.style || 'mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7',
       center: map.mapSettings?.center || [83.167, 6.887],
       zoom: map.mapSettings?.zoom || 4,
       attributionControl: false
@@ -72,7 +72,7 @@ const MapConfigurationView: React.FC<MapConfigurationViewProps> = ({
     const mapSettings = {
       center: mapRef.current?.getCenter().toArray() || [83.167, 6.887],
       zoom: mapRef.current?.getZoom() || 4,
-      style: mapRef.current?.getStyle()?.sprite || 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7'
+      style: mapRef.current?.getStyle()?.sprite || 'mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7'
     };
 
     const fullConfig = {

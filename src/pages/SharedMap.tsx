@@ -50,7 +50,7 @@ const SharedMap = () => {
     
     mapRef.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: mapData.mapSettings?.style || 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7',
+      style: mapData.mapSettings?.style || 'mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7',
       center: mapData.mapSettings?.center || [83.167, 6.887],
       zoom: mapData.mapSettings?.zoom || 4,
       attributionControl: false

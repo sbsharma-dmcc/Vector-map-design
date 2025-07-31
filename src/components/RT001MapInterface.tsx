@@ -142,6 +142,11 @@ const RT001MapInterface: React.FC<RT001MapInterfaceProps> = ({
           </div>
         </div>
       )}
+      {activeLayers.windSpeedValues && (
+        <div className="absolute top-1/3 right-1/3 text-white text-xs font-semibold bg-black bg-opacity-30 px-2 py-1 rounded">
+          Wind: 15 kts
+        </div>
+      )}
 
       {activeLayers.pressure && (
         <div className="absolute top-1/2 left-1/4">

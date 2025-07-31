@@ -1,7 +1,7 @@
 import { init, track, setUserId, identify } from '@amplitude/analytics-browser';
 
 // Initialize Amplitude
-const AMPLITUDE_API_KEY = '86a69223d8d1c74f106bb392555b6a0';
+const AMPLITUDE_API_KEY = 'e513ae6a0eba9cd6536bc032fb646b6b';
 
 export const initAnalytics = () => {
   init(AMPLITUDE_API_KEY, undefined, {

@@ -9,6 +9,112 @@ import { createVesselMarkers, cleanupVesselMarkers } from '@/utils/vesselMarkers
 import { fourVessels, Vessel } from '@/lib/vessel-data';
 import WeatherLayerConfig from './WeatherLayerConfig';
 
+
+// =================================================================
+// START: INLINE CSS FOR TOOLTIP
+// =================================================================
+const ThemedTooltipStyles = () => (
+  <style>{`
+    /* Reset the main popup container's default styles */
+    .mapboxgl-popup-content {
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    /* Style the API's container div with the user's requested styles */
+    .dtn-tooltip-container {
+      background: #1E293B;
+      display: flex !important;
+      max-width: 240px;
+      padding: 8px !important;
+      align-items: center;
+      gap: 8px !important;
+      border-radius: 5px !important;
+      box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.16) !important;
+      line-height: 1;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      font-size: 14px;
+    }
+
+    /* Force the nested tables and rows to not take up space */
+    .dtn-tooltip-table-multiple,
+    .dtn-tooltip-table,
+    .dtn-tooltip-table tbody,
+    .dtn-tooltip-table tr {
+      display: contents; /* This makes the containers "disappear" from the layout */
+    }
+    .dtn-tooltip-label {
+      color: #FFFFFF;
+    
+    }
+    /* Make the table cells flex items */
+    .dtn-tooltip-table td {
+        display: flex;
+        align-items: baseline; /* Align text along the bottom */
+        gap: 0.3em; /* Space between label, data, units */
+    }
+
+    /* Light Theme */
+    .dtn-tooltip-light .dtn-tooltip-container {
+      background: #FFFFFF !important;
+      color: #1a202c !important;
+    }
+    .dtn-tooltip-light .mapboxgl-popup-tip {
+      border-top-color: #FFFFFF !important;
+    }
+    .dtn-tooltip-light .dtn-tooltip-label {
+      color: #718096 !important;
+    }
+    .dtn-tooltip-light .dtn-tooltip-data,
+    .dtn-tooltip-light .dtn-tooltip-units {
+      color: #1a202c !important;
+      font-weight: 600;
+    }
+
+    /* Dark Theme */
+    .dtn-tooltip-dark .dtn-tooltip-container {
+      background: #1E293B !important; /* User requested color */
+      color: #FFFFFF !important;
+    }
+    .dtn-tooltip-dark .mapboxgl-popup-tip {
+      border-top-color: #1E293B !important;
+    }
+    .dtn-tooltip-dark .dtn-tooltip-label {
+      color: #bdc3c7 !important;
+    }
+    .dtn-tooltip-dark .dtn-tooltip-data,
+    .dtn-tooltip-dark .dtn-tooltip-units {
+      color: #FFFFFF !important;
+      font-weight: 600;
+    }
+  `}</style>
+);
+// =================================================================
+// END: INLINE CSS FOR TOOLTIP
+// =================================================================
+
+
+// Helper function to load all your SVGs into the map
+const loadWindBarbIcons = (map: mapboxgl.Map) => {
+  const speeds = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]; 
+  
+  speeds.forEach(speed => {
+    const id = `wind-barb-${speed}`;
+    const url = `/lovable-uploads/wind-barb-${speed}.svg`; 
+    
+    map.loadImage(url, (error, image) => {
+      if (error) {
+        console.error(`Failed to load wind barb icon: ${url}`, error);
+        return;
+      }
+      if (image && !map.hasImage(id)) {
+        map.addImage(id, image);
+      }
+    });
+  });
+};
+
 // Theme Context
 interface ThemeContextType {
   theme: 'light' | 'dark';
@@ -22,11 +128,13 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export const useTheme = () => useContext(ThemeContext);
 
+
+
 // Base layer styles for different themes
 const baseLayerStyles = {
-  light: 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7', // Your current light style
+  light: 'mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7', // Your current light style
   dark: 'mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66', // Mapbox dark style
-  default: 'mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7'
+  default: 'mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7'
 };
 
 mapboxgl.accessToken = "pk.eyJ1IjoiZ2Vvc2VydmUiLCJhIjoiY201Z2J3dXBpMDU2NjJpczRhbmJubWtxMCJ9.6Kw-zTqoQcNdDokBgbI5_Q";
@@ -50,7 +158,7 @@ const ThemeToggleButton: React.FC = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="absolute top-4 right-4 z-30 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 hover:shadow-xl transition-all duration-200"
+      className="absolute top-5 right-16 z-30 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 hover:shadow-xl transition-all duration-200"
       title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
     >
       <div className="flex items-center space-x-2">
@@ -85,6 +193,15 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const mapContainerRef = useRef(null);
   const mapref = useRef<mapboxgl.Map | null>(null);
   const vesselMarkersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
+  
+  // =================================================================
+  // START: TOOLTIP INTEGRATION - Step 1: Add ref for the tooltip
+  // =================================================================
+  const tooltipRef = useRef<mapboxgl.Popup | null>(null);
+  // =================================================================
+  // END: TOOLTIP INTEGRATION - Step 1
+  // =================================================================
+
   const [showLayers, setShowLayers] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     // Load theme from localStorage or default to light
@@ -102,7 +219,9 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   }, []);
 
   const [activeOverlays, setActiveOverlays] = useState<string[]>([]);
-  const activeWeatherLayers = activeOverlays.filter(layer => ['wind', 'swell', 'tropicalStorms', 'pressure', 'current', 'symbol', 'waves'].includes(layer));
+  const activeWeatherLayers = activeOverlays.filter(layer => 
+    ['wind', 'swell', 'tropicalStorms', 'pressure', 'current', 'symbol', 'waves', 'significantWaveHeight', 'meanWaveDirection', 'currentSpeed', 'pressure-gradient'].includes(layer)
+  );
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [mapVessels, setMapVessels] = useState<Vessel[]>([]);
   
@@ -130,6 +249,41 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       allowOverlap: true,
       barbStyle: 'full',
       speedUnit: 'knots'
+    },
+    currentSpeed: { // Add this entire block
+      fillOpacity: 0.3,
+      fillOutlineColor: 'transparent',
+      animationSpeed: 0.0008,
+      animationEnabled: true,
+      fillAntialias: true,
+      smoothing: true,
+      blurRadius: 2,
+      edgeFeathering: 1.5,
+      gradient: [
+        { value: '0.0kt', color: 'rgb(0, 0, 255)' },
+        { value: '0.5kt', color: 'rgb(70, 130, 180)' },
+        { value: '1.0kt', color: 'rgb(0, 255, 255)' },
+        { value: '1.5kt', color: 'rgb(173, 255, 47)' },
+        { value: '2.0kt', color: 'rgb(255, 255, 0)' },
+        { value: '2.5kt', color: 'rgb(255, 165, 0)' },
+        { value: '3.0kt', color: 'rgb(255, 69, 0)' },
+        { value: '3.5kt', color: 'rgb(255, 0, 0)' },
+        { value: '4.0kt', color: 'rgb(220, 20, 60)' },
+        // { value: '4.0kt+', color: 'rgb(139, 0, 0)' }
+      ]
+    },
+    windSpeedValues: {
+      textColor: { light: '#1C4ED8', dark: '#B0CFF9' },
+      textSize: 16,
+      textOpacity: 0.5,
+      haloColor: { light: '#1c4ed8', dark: '#B0CFF9' },
+      haloWidth: 0.5,
+      symbolSpacing: 100,
+      allowOverlap: true,
+      rotationAlignment: 'map',
+      symbolType: 'arrow',
+      customSymbol: '→',
+      showSizeValue: false
     },
     pressure: {
       contourWidth: 1,
@@ -197,12 +351,48 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         { value: '10m+', color: '#56001d' }
       ]
     },
+    // === START: ADD THIS BLOCK FOR THE NEW LAYER'S STYLE ===
+    significantWaveHeight: {
+      fillOpacity: 0.4,
+      fillOutlineColor: 'transparent',
+      animationEnabled: false,
+      gradient: [
+        { value: '0m', color: '#072144' },
+        { value: '0.5m', color: '#1926bd' },
+        { value: '1m', color: '#0c5eaa' },
+        { value: '1.5m', color: '#0d7bc2' },
+        { value: '2m', color: '#16b6b3' },
+        { value: '2.5m', color: '#15d5a5' },
+        { value: '3m', color: '#10b153' },
+        { value: '4m', color: '#d1d112' },
+        { value: '5m', color: '#c35215' },
+        { value: '6m', color: '#b03f12' },
+        { value: '7m', color: '#e05219' },
+        { value: '9m', color: '#c6141c' },
+        { value: '11m', color: '#8f0a10' },
+        { value: '14m+', color: '#56001d' }
+      ]
+    },
+    meanWaveDirection: {
+      textColor: { light: '#1c4ed8', dark: '#b0cff9' },
+      textSize: 16,
+      textOpacity: 0.5,
+      haloColor: { light: '#1c4ed8', dark: '#b0cff9' },
+      haloWidth: 1,
+      symbolSpacing: 100,
+      allowOverlap: true,
+      rotationAlignment: 'map',
+      symbolType: 'arrow',
+      customSymbol: '→',
+      showSizeValue: false,
+      writingMode: ['horizontal'] // ✅ ADD THIS
+    },
     symbol: {
-      textColor: '#ff0000',
+      textColor: '#ffffff',
       textSize: 16,
       textOpacity: 0.8,
-      haloColor: '#000000',
-      haloWidth: 1,
+      haloColor: '#ffffff',
+      haloWidth: 0.5,
       symbolSpacing: 100,
       allowOverlap: true,
       rotationAlignment: 'map',
@@ -211,11 +401,11 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       showSizeValue: false
     },
     current: {
-      textColor: '#f9f9ff',
+      textColor: { light: '#1c4ed8', dark: '#b0cff9' },
       textSize: 16,
-      textOpacity: 0.8,
-      haloColor: '#000000',
-      haloWidth: 1,
+      textOpacity: 0.5,
+      haloColor: { light: '#1c4ed8', dark: '#b0cff9' },
+      haloWidth: 0.5,
       symbolSpacing: 100,
       allowOverlap: true,
       rotationAlignment: 'map',
@@ -235,7 +425,11 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     current: {dtnLayerId: 'fcst-manta-current-direction-grid', tileSetId: '670bca59-c4a0-491e-83bf-4423a3d84d6f'},
     waves:{ dtnLayerId :'fcst-sea-wave-height-wind-waves-contours', tileSetId:'7f9421ef-35f6-45a2-81fd-39bbf8cb0822'},
     tropicalStorms: { dtnLayerId: 'sevwx-dtn-tropical-cyclones-plot', tileSetId: '7601024c-f40c-44ec-8f69-c8a8c0dde980' },
-    'pressure-gradient': { dtnLayerId: 'fcst-manta-mean-sea-level-pressure-gradient', tileSetId: '3fca4d12-8e9a-4c15-9876-1a2b3c4d5e6f' }
+    'pressure-gradient': { dtnLayerId: 'fcst-manta-mean-sea-level-pressure-gradient', tileSetId: '3fca4d12-8e9a-4c15-9876-1a2b3c4d5e6f' },
+    windSpeedValues: { dtnLayerId: 'fcst-manta-wind-speed-grid', tileSetId: '8801572e-b10c-4407-8581-3236ff8d2375' },
+    significantWaveHeight: { dtnLayerId: 'fcst-manta-significant-wave-height-contours', tileSetId: 'b6c27807-162d-4570-9952-f692cde9109d' },
+    meanWaveDirection: { dtnLayerId: 'fcst-manta-mean-wave-direction-grid', tileSetId: '771cdc60-c945-4545-a332-768c379ce563'},
+    currentSpeed: { dtnLayerId: 'fcst-manta-current-speed-contours', tileSetId: 'd857dae9-ad80-4357-9201-f7a4d1f6363d' }, 
   };
 
   // Define a config object for tropical storms
@@ -428,6 +622,77 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     });
   }, [activeLayers, isMapLoaded]);
 
+  
+  // =================================================================
+  // START: TOOLTIP INTEGRATION - Step 2: Add useEffect for tooltip logic
+  // =================================================================
+    useEffect(() => {
+    const map = mapref.current;
+    if (!map || !isMapLoaded) return;
+
+    const handleMapClick = (e: mapboxgl.MapLayerMouseEvent) => {
+      // Always remove the previous tooltip if it exists
+      if (tooltipRef.current) {
+        tooltipRef.current.remove();
+        tooltipRef.current = null;
+      }
+
+      // Step 1: Query for rendered features at the clicked point
+      const features = map.queryRenderedFeatures(e.point);
+      if (!features.length) {
+        return; // Exit if no features were clicked
+      }
+
+      // Step 2: Grab the top-most feature
+      const topFeature = features[0];
+      
+      // Step 3: Check if the feature has properties we can use to build a tooltip
+      // We assume a 'value' property exists, as it's used in your layer styling.
+      if (topFeature.properties && topFeature.properties.value !== undefined) {
+        
+        // Sanitize and format the data from the feature's properties
+        const value = Number(topFeature.properties.value).toFixed(2);
+        const layerId = topFeature.layer.id.replace('dtn-layer-', ''); // e.g., 'swell'
+        const label = layerId.charAt(0).toUpperCase() + layerId.slice(1);
+        const unit = topFeature.properties.unit || ''; // Use unit if available
+
+        // Step 4: Build the tooltip HTML directly from the feature properties
+        const tooltipHtml = `
+          <div class="dtn-tooltip-container">
+            <span class="dtn-tooltip-label">${label}:</span>
+            <span class="dtn-tooltip-data">${value}</span>
+            <span class="dtn-tooltip-units">${unit}</span>
+          </div>
+        `;
+
+        // Step 5: Create the popup and add it to the map
+        tooltipRef.current = new mapboxgl.Popup({ 
+            closeButton: false,
+            // Apply the theme class for correct dark/light styling
+            className: `dtn-custom-tooltip dtn-tooltip-${theme}`
+        })
+          .setLngLat(e.lngLat)
+          .setHTML(tooltipHtml)
+          .addTo(map);
+
+      }
+    };
+
+    map.on('click', handleMapClick);
+
+    return () => {
+      map.off('click', handleMapClick);
+      if (tooltipRef.current) {
+        tooltipRef.current.remove();
+      }
+    };
+    // Re-run this effect if the map loads or the theme changes (to update popup style)
+  }, [isMapLoaded, theme]);  // Dependencies for the effect
+  // =================================================================
+  // END: TOOLTIP INTEGRATION - Step 2
+  // =================================================================
+  
+
   const fetchDTNSourceLayer = async (layerId: string) => {
     try {
       const token = getDTNToken();
@@ -587,15 +852,15 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
           ['linear'],
           ['get', 'value'],
           980,
-          config.lowPressureColor,
+          config.lowPressureColor[theme],
           1000,
-          config.lowPressureColor,
+          config.lowPressureColor[theme],
           1013,
-          config.mediumPressureColor,
+          config.mediumPressureColor[theme],
           1030,
-          config.highPressureColor,
+          config.highPressureColor[theme],
           1050,
-          config.highPressureColor,
+          config.highPressureColor[theme],
         ],
       });
     } else if (layerType === 'wind') {
@@ -609,8 +874,8 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
           ['concat', ['round', ['*', ['get', 'WIND_SPEED_MS'], 1.94384]], 'kt']
         ],
         'text-size': config.textSize || 16,
-        'text-color': config.textColor || '#ffffff',
-        'text-halo-color': config.haloColor || '#000000',
+        'text-color': config.textColor[theme],
+        'text-halo-color': config.haloColor[theme],
         'text-halo-width': config.haloWidth || 1,
         'text-allow-overlap': config.allowOverlap || true,
         'symbol-spacing': config.symbolSpacing || 80
@@ -622,7 +887,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     } else if (layerType === 'swell') {
       updateLayerProperties(layerType, {
         'fill-opacity': config.fillOpacity || 0.9,
-        'fill-outline-color': config.fillOutlineColor || 'transparent'
+        'fill-outline-color': config.fillOutlineColor
       });
 
       if (config.gradient) {
@@ -644,7 +909,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     } else if (layerType === 'waves') {
       updateLayerProperties(layerType, {
         'fill-opacity': config.fillOpacity || 0.8,
-        'fill-outline-color': config.fillOutlineColor || 'transparent'
+        'fill-outline-color': config.fillOutlineColor
       });
 
       if (config.gradient) {
@@ -659,21 +924,92 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         });
         updateLayerProperties(layerType, { 'fill-color': colorExpression });
       }
-    } else if (layerType === 'symbol') {
+    } else if (layerType === 'windSpeedValues') {
+      // Fix is here: Use the 'config' parameter instead of hardcoded values.
+      updateLayoutProperties(layerType, {
+        "text-field": [
+                'to-string',
+                [
+                  '/',
+                  [
+                    'round',
+                    [
+                      '*',
+                      ['to-number', ['get', 'value']],
+                      10
+                    ]
+                  ],
+                  10
+                ]
+              ],
+        'text-size': config.textSize,
+        'text-font': ['Open Sans Regular'],
+        'text-anchor': 'center',
+        'text-allow-overlap': true
+      });
+
+      updateLayerProperties(layerType, {
+        'text-color': config.textColor[theme],
+        'text-opacity': config.textOpacity,
+        'text-halo-color': config.haloColor[theme],
+        'text-halo-width': config.haloWidth
+      });
+    }else if (layerType === 'meanWaveDirection') {
       updateLayoutProperties(layerType, {
         'text-field': getSymbolByType(config.symbolType || 'arrow', config.customSymbol),
         'text-size': config.textSize || 16,
         'text-rotation-alignment': config.rotationAlignment || 'map',
-        'text-allow-overlap': config.allowOverlap || true,
+        'text-allow-overlap': config.allowOverlap ?? true,
         'symbol-spacing': config.symbolSpacing || 100,
+        'text-writing-mode': ['horizontal'], // ✅ THIS IS CRUCIAL
+        'text-rotate': ['get', 'value']
       });
 
       updateLayerProperties(layerType, {
-        'text-color': config.textColor || '#ff0000',
+        'text-color': config.textColor[theme] || '#FFFFFF',
         'text-opacity': config.textOpacity || 0.8,
-        'text-halo-color': config.haloColor || '#000000',
+        'text-halo-color': config.haloColor[theme] || '#000000',
         'text-halo-width': config.haloWidth || 1,
       });
+    } else if (layerType === 'symbol') {
+      // This block now only sets properties for icon-based symbols
+      updateLayoutProperties(layerType, {
+        'icon-image': config.iconImage,
+        'icon-size': config.iconSize || 1,
+        'icon-rotate': config.iconRotate || 0,
+        'icon-rotation-alignment': config.rotationAlignment || 'map',
+        'icon-allow-overlap': config.allowOverlap || true,
+        'icon-ignore-placement': config.ignorePlacement || true,
+      });
+
+      updateLayerProperties(layerType, {
+        'icon-opacity': config.iconOpacity || 1,
+        'icon-halo-color': config.haloColor, // For glow effect around icon
+        'icon-halo-width': config.haloWidth || 0,
+      });
+    } else if (layerType === 'currentSpeed') {
+      updateLayerProperties(layerType, {
+        'fill-opacity': config.fillOpacity || 0.3,
+      });
+
+      if (config.gradient) {
+        const colorExpression: any[] = [
+          'interpolate',
+          ['linear'],
+          ['to-number', ['get', 'value'], 0],
+        ];
+        
+        // Replace the logic inside this forEach loop
+        config.gradient.forEach((item: any) => {
+          // Correctly parse the value by removing non-numeric parts first
+          const speedValue = parseFloat(item.value.replace(/[^0-9.-]/g, ''));
+          if (!isNaN(speedValue)) {
+            colorExpression.push(speedValue, item.color);
+          }
+        });
+
+        updateLayerProperties(layerType, { 'fill-color': colorExpression });
+      }
     } else if (layerType === 'current') {
       updateLayoutProperties(layerType, {
         'text-field': getSymbolByType(config.symbolType || 'arrow', config.customSymbol),
@@ -684,9 +1020,9 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       });
 
       updateLayerProperties(layerType, {
-        'text-color': config.textColor || '#f9f9ff',
+        'text-color': config.textColor[theme] || '#f9f9ff',
         'text-opacity': config.textOpacity || 0.8,
-        'text-halo-color': config.haloColor || '#000000',
+        'text-halo-color': config.haloColor[theme] || '#000000',
         'text-halo-width': config.haloWidth || 1,
       });
     } else if (layerType === 'tropicalStorms') {
@@ -772,11 +1108,78 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       return;
     }
 
+    // Add the new ECA logic right before the 'nautical' block:
     if (activeOverlays.includes(overlay) && !forceAdd) {
       console.log(`Removing overlay: ${overlay}`);
       removeOverlay(overlay);
       return;
     }
+
+    // START: Add this block for ECA layer logic
+    if (overlay === 'eca') {
+      try {
+        console.log("1. ECA block entered."); // <-- ADD THIS
+    
+        const apiUrl = 'https://vo.geoserves-test.com/api/conditional-areas/eca-regions';
+        const response = await fetch(apiUrl);
+
+        if (!response.ok) throw new Error(`ECA API request failed: ${response.status}`);
+        
+        const responseData = await response.json();
+        console.log("2. API Response Data:", responseData); // <-- ADD THIS
+
+        const ecaFeatures = responseData.data;
+
+        const ecaGeoJSON = {
+          type: 'FeatureCollection',
+          features: ecaFeatures
+        };
+        console.log("3. GeoJSON object created:", ecaGeoJSON);
+        const sourceId = 'eca-source';
+        if (mapref.current && !mapref.current.getSource(sourceId)) {
+          mapref.current.addSource(sourceId, {
+            type: 'geojson',
+            data: ecaGeoJSON
+          });
+        }
+
+        const beforeId = 'vessel-layer';
+
+        if (mapref.current && !mapref.current.getLayer('eca-fill-layer')) {
+          mapref.current.addLayer({
+            id: 'eca-fill-layer',
+            type: 'fill',
+            source: sourceId,
+            paint: {
+              'fill-color': '#001E4C', // Dark blue fill
+              'fill-opacity': 0.3
+            }
+          }, beforeId);
+        }
+
+        if (mapref.current && !mapref.current.getLayer('eca-outline-layer')) {
+          mapref.current.addLayer({
+            id: 'eca-outline-layer',
+            type: 'line',
+            source: sourceId,
+            paint: {
+              'line-color': '#FEF9C3', // Light yellow outline
+              'line-width': 1.5
+            }
+          }, beforeId);
+        }
+        
+        setActiveOverlays(prev => [...prev, overlay]);
+        toast({ title: "ECA Layer Added", description: "Emission Control Areas are now shown." });
+
+      } catch (error) {
+        console.error("Failed to add ECA layer:", error);
+        toast({ title: "ECA Layer Error", description: "Could not load ECA data.", variant: "destructive" });
+      }
+      return; 
+    }
+    // END: Add this block
+
 
     if (overlay === 'nautical') {
       const sourceId = 'openseamap-source';
@@ -891,6 +1294,70 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
             }
           }, beforeId);
 
+        } else if (overlay === 'currentSpeed') {
+          const config = layerConfigs.currentSpeed;
+          const colorExpression: any[] = [
+            'interpolate',
+            ['linear'],
+            ['to-number', ['get', 'value'], 0]
+          ];
+
+          config.gradient.forEach((item: any) => {
+            // FIX: Clean the string value before parsing, just like in the update function
+            const speedValue = parseFloat(item.value.replace(/[^0-9.-]/g, ''));
+            if (!isNaN(speedValue)) {
+              colorExpression.push(speedValue, item.color);
+            }
+          });
+
+          mapref.current.addLayer({
+            id: layerId,
+            type: "fill",
+            source: sourceId,
+            "source-layer": sourceLayer,
+            paint: {
+              "fill-color": colorExpression,
+              "fill-opacity": config.fillOpacity,
+              "fill-antialias": true
+            },
+            layout: {
+              "visibility": "visible"
+            }
+          }, beforeId);
+        } else if (overlay === 'windSpeedValues') {
+          mapref.current.addLayer({
+            id: layerId,
+            type: "symbol",
+            source: sourceId,
+            "source-layer": sourceLayer,
+            layout: {
+              "text-field": [
+                'to-string',
+                [
+                  '/',
+                  [
+                    'round',
+                    [
+                      '*',
+                      ['to-number', ['get', 'value']],
+                      10
+                    ]
+                  ],
+                  10
+                ]
+              ],
+              "text-size": 12,
+              "text-font": ["Open Sans Regular"],
+              "text-anchor": "center",
+              "text-allow-overlap": true
+            },
+            paint: {
+              "text-color": layerConfigs.windSpeedValues.textColor[theme],
+              "text-opacity": layerConfigs.windSpeedValues.textOpacity,
+              "text-halo-color": layerConfigs.windSpeedValues.haloColor[theme],
+              "text-halo-width": layerConfigs.windSpeedValues.haloWidth
+            }
+          }, beforeId);
         } else if (overlay === 'pressure-gradient') {
           // Create smooth pressure gradient using heatmap layer
           mapref.current.addLayer({
@@ -960,36 +1427,100 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
           }, beforeId);
           
           setTimeout(() => animateSwell(), 100);
+        } else if (overlay === 'significantWaveHeight') {
+            const config = layerConfigs.significantWaveHeight;
+            const colorExpression: any[] = [
+              'interpolate',
+              ['exponential', 1.5],
+              ['to-number', ['get', 'value'], 0]
+            ];
+
+            config.gradient.forEach((item) => {
+              const heightValue = parseFloat(item.value.replace('m', '').replace('+', ''));
+              colorExpression.push(heightValue, item.color);
+            });
+
+            mapref.current.addLayer({
+              id: layerId,
+              type: "fill",
+              source: sourceId,
+              "source-layer": sourceLayer,
+              paint: {
+                "fill-color": colorExpression,
+                "fill-opacity": config.fillOpacity,
+                "fill-outline-color": config.fillOutlineColor,
+                "fill-antialias": true
+              },
+              layout: {
+                visibility: "visible"
+              }
+            }, beforeId); // 'beforeId' ensures it's placed correctly relative to other layers
+        // === END: ADD THIS BLOCK TO DRAW THE NEW LAYER ===
+// the lower wind we are not using
         } else if (overlay === 'wind') {
           mapref.current.addLayer({
+            sprite: "https://map.api.dtn.com/static/sprite/wind-barbs",
             id: layerId,
             type: "symbol",
             source: sourceId,
             "source-layer": sourceLayer,
             layout: {
-              "text-field": [
+              "text-field":[
                 "case",
-                ["<", ["to-number", ["get", "value"], 0], 3], "○",
-                ["<", ["to-number", ["get", "value"], 0], 8], "│",
-                ["<", ["to-number", ["get", "value"], 0], 13], "╸│",
-                ["<", ["to-number", ["get", "value"], 0], 18], "━│",
-                ["<", ["to-number", ["get", "value"], 0], 23], "━╸│",
-                ["<", ["to-number", ["get", "value"], 0], 28], "━━│",
-                ["<", ["to-number", ["get", "value"], 0], 33], "━━╸│",
-                ["<", ["to-number", ["get", "value"], 0], 38], "━━━│",
-                ["<", ["to-number", ["get", "value"], 0], 43], "━━━╸│",
-                ["<", ["to-number", ["get", "value"], 0], 48], "━━━━│",
-                ["<", ["to-number", ["get", "value"], 0], 53], "━━━━╸│",
-                ["<", ["to-number", ["get", "value"], 0], 63], "◤│",
-                ["<", ["to-number", ["get", "value"], 0], 68], "◤╸│",
-                ["<", ["to-number", ["get", "value"], 0], 73], "◤━│",
-                ["<", ["to-number", ["get", "value"], 0], 78], "◤━╸│",
-                ["<", ["to-number", ["get", "value"], 0], 83], "◤━━│",
-                ["<", ["to-number", ["get", "value"], 0], 88], "◤━━╸│",
-                ["<", ["to-number", ["get", "value"], 0], 93], "◤━━━│",
-                ["<", ["to-number", ["get", "value"], 0], 98], "◤━━━╸│",
-                ["<", ["to-number", ["get", "value"], 0], 103], "◤━━━━│",
-                "◤◤│"
+
+                ["<", ["to-number", ["get", "value"]], 2.5], "○",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 2.5],
+                  ["<", ["to-number", ["get", "value"]], 7.5]
+                ], "│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 7.5],
+                  ["<", ["to-number", ["get", "value"]], 12.5]
+                ], "╸│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 12.5],
+                  ["<", ["to-number", ["get", "value"]], 17.5]
+                ], "━│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 17.5],
+                  ["<", ["to-number", ["get", "value"]], 22.5]
+                ], "━╸│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 22.5],
+                  ["<", ["to-number", ["get", "value"]], 27.5]
+                ], "━━│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 27.5],
+                  ["<", ["to-number", ["get", "value"]], 32.5]
+                ], "━━╸│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 32.5],
+                  ["<", ["to-number", ["get", "value"]], 37.5]
+                ], "━━━│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 37.5],
+                  ["<", ["to-number", ["get", "value"]], 42.5]
+                ], "━━━╸|",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 42.5],
+                  ["<", ["to-number", ["get", "value"]], 47.5]
+                ], "━━━━│",
+
+                ["all",
+                  [">=", ["to-number", ["get", "value"]], 47.5],
+                  ["<", ["to-number", ["get", "value"]], 52.5]
+                ], "━━━━╸│",
+
+                "◤◤│" // default for anything ≥52.5
               ],
               "text-size": layerConfigs.wind.textSize,
               "text-rotation-alignment": "map",
@@ -1043,39 +1574,103 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
             }, beforeId);
 
             setTimeout(() => animateWindWaves(), 100);
-          } else if (overlay === 'symbol') {
-          const symbolConfig = layerConfigs.symbol;
-          const symbolText = getSymbolByType(symbolConfig.symbolType, symbolConfig.customSymbol);
-          
-          mapref.current.addLayer({
-            id: layerId,
-            type: "symbol",
-            source: sourceId,
-            "source-layer": sourceLayer,
-            layout: {
-              "text-field": symbolText,
-              "text-size": symbolConfig.textSize,
-              "text-rotation-alignment": symbolConfig.rotationAlignment,
-              "text-rotate": [
-                "case",
-                ["has", "direction"],
-                ["get", "direction"],
-                ["has", "value1"], 
-                ["get", "value1"],
-                0
-              ],
-              "text-allow-overlap": symbolConfig.allowOverlap,
-              "text-ignore-placement": true,
-              "symbol-spacing": symbolConfig.symbolSpacing
-            },
-            paint: {
-              "text-color": symbolConfig.textColor,
-              "text-opacity": symbolConfig.textOpacity,
-              "text-halo-color": symbolConfig.haloColor,
-              "text-halo-width": symbolConfig.haloWidth
-            },
-          }, beforeId);
-        } else if (overlay === 'nautical'){
+          }else if (overlay === 'meanWaveDirection') {
+            const symbolConfig = layerConfigs[overlay];
+            const symbolText = getSymbolByType(symbolConfig.symbolType, symbolConfig.customSymbol);
+
+            mapref.current.addLayer({
+              id: layerId,
+              type: "symbol",
+              source: sourceId,
+              "source-layer": sourceLayer,
+              layout: {
+                "text-field": symbolText,
+                "text-size": symbolConfig.textSize || 16,
+                "text-rotation-alignment": "map", // enforce alignment to map
+                "text-writing-mode": ["horizontal"], // force consistent direction handling
+                'text-rotate': ['get', 'value'],
+                "text-allow-overlap": symbolConfig.allowOverlap,
+                "text-ignore-placement": true,
+                "symbol-spacing": symbolConfig.symbolSpacing || 100
+              },
+              paint: {
+                "text-color": symbolConfig.textColor[theme],
+                "text-opacity": symbolConfig.textOpacity || 0.8,
+                "text-halo-color": symbolConfig.haloColor[theme],
+                "text-halo-width": symbolConfig.haloWidth || 1
+              },
+            }, beforeId);
+          }else if (overlay === 'symbol') {
+    // Define keys for the layer and source
+    const layerKey = 'symbol'; 
+    const { dtnLayerId, tileSetId } = dtnOverlays[layerKey];
+    const sourceId = `dtn-source-${layerKey}`;
+    const layerId = `dtn-layer-${layerKey}`;
+    
+    try {
+        const map = mapref.current;
+        if (!map) return;
+
+        // --- STEP 1: Set your custom style from Mapbox Studio ---
+        const customMapboxStyleUrl = 'mapbox://styles/geoserve/cmcym02tg004g01sd6mg030ds';
+        map.setStyle(customMapboxStyleUrl);
+
+        // Wait for your custom style and its icons to load completely
+        await new Promise(resolve => map.once('styledata', resolve));
+        
+        console.log("Available icons from your style:", map.listImages());
+
+        // --- STEP 2: Add the DTN data source ---
+        if (!map.getSource(sourceId)) {
+            const sourceLayer = await fetchDTNSourceLayer(dtnLayerId);
+            const token = getDTNToken();
+            const authToken = token.replace('Bearer ', '');
+            const tileURL = `https://map.api.dtn.com/v2/tiles/${dtnLayerId}/${tileSetId}/{z}/{x}/{y}.pbf?token=${authToken}`;
+            map.addSource(sourceId, { type: "vector", tiles: [tileURL] });
+        }
+
+        // --- STEP 3: Add the layer using your 6 available icons ---
+        if (!map.getLayer(layerId)) {
+            const sourceLayer = await fetchDTNSourceLayer(dtnLayerId);
+            map.addLayer({
+                id: layerId,
+                type: "symbol",
+                source: sourceId,
+                "source-layer": sourceLayer,
+                layout: {
+                    "icon-image": [
+                        "case",
+                        // Mapping wind speeds to your available icons
+                        ["<", ["get", "windSpeedStyle"], 2.5], "dot-9",
+                        ["<", ["get", "windSpeedStyle"], 7.5], "dot-10",
+                        ["<", ["get", "windSpeedStyle"], 12.5], "dot-11",
+                        ["<", ["get", "windSpeedStyle"], 17.5], "border-dot-13",
+                        ["<", ["get", "windSpeedStyle"], 22.5], "wetland",
+                        // Use 'cliff' as the fallback for all other speeds
+                        "cliff"
+                    ],
+                    // This rotation logic should work as before
+                    "icon-rotate": [
+                        "case",
+                        ["==", ["coalesce", ["get", "isNorthernHemisphereStyle"], ["get", "isNorth"]], true],
+                        ["+", ["coalesce", ["get", "windDirectionStyle"], ["get", "value1"]], 90],
+                        ["+", ["coalesce", ["get", "windDirectionStyle"], ["get", "value1"]], 270]
+                    ],
+                    "icon-size": 1.0, // You may need to adjust the size
+                    "icon-allow-overlap": true,
+                    "icon-ignore-placement": true,
+                },
+            });
+        }
+        
+        if (!activeOverlays.includes(overlay)) {
+            setActiveOverlays(prev => [...prev, overlay]);
+        }
+
+    } catch (error) {
+        console.error("Error adding custom symbol layer:", error);
+    }
+}else if (overlay === 'nautical'){
           console.log('Nautical charts');
 
         } else if (overlay === 'tropicalStorms') {
@@ -1161,9 +1756,9 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
               "symbol-spacing": symbolConfig.symbolSpacing
             },
             paint: {
-              "text-color": symbolConfig.textColor,
+              "text-color": symbolConfig.textColor[theme],
               "text-opacity": symbolConfig.textOpacity,
-              "text-halo-color": symbolConfig.haloColor,
+              "text-halo-color": symbolConfig.haloColor[theme],
               "text-halo-width": symbolConfig.haloWidth
             },
           }, beforeId);
@@ -1196,8 +1791,31 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     }
   };
 
+ // Add the new ECA removal logic at the top:
   const removeOverlay = (overlay: string) => {
     if (!mapref.current || !mapref.current.isStyleLoaded()) return;
+
+    // START: Add this block for ECA layer removal
+    if (overlay === 'eca') {
+      const sourceId = 'eca-source';
+      const layerIds = ['eca-fill-layer', 'eca-outline-layer'];
+
+      layerIds.forEach(id => {
+        if (mapref.current && mapref.current.getLayer(id)) {
+          mapref.current.removeLayer(id);
+        }
+      });
+
+      if (mapref.current && mapref.current.getSource(sourceId)) {
+        mapref.current.removeSource(sourceId);
+      }
+      
+      setActiveOverlays(prev => prev.filter(item => item !== overlay));
+      toast({ title: "ECA Layer Removed" });
+      return;
+    }
+    // END: Add this block
+
 
     if (overlay === 'nautical') {
       const sourceId = 'openseamap-source';
@@ -1275,6 +1893,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
 
   return (
     <ThemeContext.Provider value={themeContextValue}>
+      <ThemedTooltipStyles />
       <div className="relative h-full w-full">
         <MapTopControls />
         <DirectTokenInput />
@@ -1283,7 +1902,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         <ThemeToggleButton />
         
         <div ref={mapContainerRef} className="absolute inset-0" />
-
+        <br></br>
         {/* Weather Layer Configuration Panel - Real-time on right side */}
         <WeatherLayerConfig 
           isOpen={activeWeatherLayers.length > 0}
@@ -1292,6 +1911,21 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
 
         {showLayers && (
           <div className="absolute top-32 left-4 z-20 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 min-w-[200px]">
+          {/* START: Add this block */}
+            <h3 className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">Regulatory & Chart Layers</h3>
+            <div
+              key="eca"
+              onClick={() => handleOverlayClick('eca')}
+              className={`p-2 my-1 rounded cursor-pointer transition-colors ${
+                activeOverlays.includes('eca')
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-100 hover:bg-gray-200 text-black dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200'
+              }`}
+            >
+              ECA Zones
+              {activeOverlays.includes('eca') && <span className="ml-2">✓</span>}
+            </div>
+            {/* END: Add this block */}
             <h3 className="text-sm font-semibold mb-3 text-gray-900 dark:text-gray-100">DTN Weather Layers</h3>
             {Object.keys(dtnOverlays).map((overlay) => (
               <div

@@ -131,7 +131,7 @@ const Maps = () => {
       mapSettings: {
         center: [83.167, 6.887],
         zoom: 4,
-        style: theme === 'dark' ? 'mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66' : 'mapbox://styles/mapbox/light-v10'
+        style: theme === 'dark' ? 'mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66' : 'mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7'
       },
       createdAt: new Date().toISOString(),
       lastModified: new Date().toISOString()

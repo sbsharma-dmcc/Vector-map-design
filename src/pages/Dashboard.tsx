@@ -14,12 +14,14 @@ const Dashboard = () => {
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>({
     wind: false,
     pressure: false,
+    windSpeedValues: false,
     swell: false,
     waves: false,
     current: false,
     tropicalStorms: false,
     'pressure-gradient': false,
-    symbol: false
+    symbol: false,
+    eca: false,
   });
   const [activeBaseLayer, setActiveBaseLayer] = useState('default');
 
@@ -85,7 +87,7 @@ const Dashboard = () => {
       {/* Layers control button */}
       <button
         onClick={handleLayersPanelToggle}
-        className="absolute top-4 left-4 z-30 bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors"
+        className="absolute top-6 left-4 z-30 bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors"
       >
         <Layers className="h-5 w-5 text-gray-700" />
       </button>

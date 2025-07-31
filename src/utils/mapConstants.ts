@@ -24,16 +24,17 @@ export const layerConfigs = {
   storm: { dtnLayerId: 'storm', tileSetId: 'storm-latest' },
   current: { dtnLayerId: 'current', tileSetId: 'current-latest' },
   wind: { dtnLayerId: 'fcst-manta-wind-speed-contours', tileSetId: 'b864ff86-22af-41fc-963e-38837d457566' },
-  tropicalStorms: { dtnLayerId: 'sevwx-dtn-tropical-cyclones-plot', tileSetId: 'f785e1fe-1624-40a3-be75-ed14c2c4a53c' }
+  tropicalStorms: { dtnLayerId: 'sevwx-dtn-tropical-cyclones-plot', tileSetId: 'f785e1fe-1624-40a3-be75-ed14c2c4a53c' },
+  windSpeedValues: { dtnLayerId: 'fcst-manta-wind-speed-grid', tileSetId: '8801572e-b10c-4407-8581-3236ff8d2375' },
 };
 
 // BASE LAYER STYLES - Different map visual styles for base layers
 // Currently all point to the same style, but can be customized for different views
 export const baseLayerStyles = {
-  default: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7",
+  default: "mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7",
   dark: "mapbox://styles/geoserve/cmb8z5ztq00rw01qxauh6gv66",
-  light: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7",  // Standard marine view
-  swell: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7",    // Swell-focused view
+  light: "mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7",  // Standard marine view
+  swell: "mapbox://styles/geoserve/cmbhl6k77009w01r0hfa78uw7",    // Swell-focused view
   waves: "mapbox://styles/geoserve/cmbf0vz6e006g01sdcdl40oi7"      // Wave-focused view
 };
 

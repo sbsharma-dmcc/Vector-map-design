@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,13 +6,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Save, Trash2, Download, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+// Updated interface to include all configurable layers
 interface WeatherConfig {
   wind: Record<string, unknown>;
+  windSpeedValues: Record<string, unknown>;
   pressure: Record<string, unknown>;
   swell: Record<string, unknown>;
   symbol: Record<string, unknown>;
   current: Record<string, unknown>;
   waves: Record<string, unknown>;
+  significantWaveHeight: Record<string, unknown>;
+  tropicalStorms: Record<string, unknown>;
+  meanWaveDirection: Record<string, unknown>;
+  currentSpeed: Record<string, unknown>;
+  'pressure-gradient': Record<string, unknown>;
 }
 
 interface ConfigDraft {
@@ -39,14 +45,20 @@ const WeatherConfigDrafts: React.FC<WeatherConfigDraftsProps> = ({
   const [selectedDraft, setSelectedDraft] = useState<string>('');
   const { toast } = useToast();
 
-  // Default config for when none is provided
+  // Updated default config to include all layers
   const defaultConfig: WeatherConfig = {
     wind: {},
+    windSpeedValues: {},
     pressure: {},
     swell: {},
     symbol: {},
     current:{},
-    waves:{}
+    waves:{},
+    significantWaveHeight: {},
+    tropicalStorms: {},
+    meanWaveDirection: {},
+    currentSpeed: {},
+    'pressure-gradient': {}
   };
 
   // Use provided config or default
